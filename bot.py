@@ -1,17 +1,10 @@
 from telegram import Update
-from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, CallbackContext
+from telegram.ext import Application, MessageHandler, filters, ContextTypes
 from flask import Flask
 from threading import Thread
 import random
 import os
-import logging
-
-# إعداد اللوجر
-logging.basicConfig(
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    level=logging.INFO
-)
-logger = logging.getLogger(__name__)
+import asyncio
 
 # خادم ويب بسيط
 app = Flask('')
@@ -40,47 +33,34 @@ bobo_replies = [
 
 ADMIN_ID = 806582695
 
-def start(update: Update, context: CallbackContext):
-    update.message.reply_text('مرحباً! أنا بوت شغال على Render 🚀')
-
-def reply_message(update: Update, context: CallbackContext):
+async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.message.chat.type == "private":
         text = update.message.text.strip().lower()
-        
+
         # يرسل نسخة من الرسالة للإدمن
         try:
-            context.bot.send_message(
+            await context.bot.send_message(
                 chat_id=ADMIN_ID,
                 text=f"📩 رسالة من @{update.message.from_user.username or 'بدون اسم مستخدم'}:\n{text}"
             )
         except Exception as e:
-            logger.error(f"Error sending to admin: {e}")
+            print(f"Error sending to admin: {e}")
 
         # يرد إذا كانت الكلمة من trigger_words
         if text in trigger_words:
             reply = random.choice(bobo_replies)
-            update.message.reply_text(reply)
+            await update.message.reply_text(reply)
 
-def main():
+async def main():
     # احصل على التوكن
-    token = os.environ.get('BOT_TOKEN')
-    if not token:
-        token = '6211628509:AAGMolj4mItGRZthCGiB55_Jz9rmNiAbeXg'
+    token = os.environ.get('BOT_TOKEN', '6211628509:AAGMolj4mItGRZthCGiB55_Jz9rmNiAbeXg')
     
     # أنشئ البوت
-    updater = Updater(token, use_context=True)
+    application = Application.builder().token(token).build()
+    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
     
-    # أضف handlers
-    dp = updater.dispatcher
-    dp.add_handler(CommandHandler("start", start))
-    dp.add_handler(MessageHandler(Filters.text & ~Filters.command, reply_message))
-    
-    # ابدأ البوت
-    updater.start_polling()
-    logger.info("✅ البوت شغال الحين! جرب أرسل 'بوبو'")
-    
-    # اجعل البوت يشتغل إلى ما لا نهاية
-    updater.idle()
+    print("✅ البوت شغال على Render! جرب أرسل 'بوبو'")
+    await application.run_polling()
 
 if __name__ == '__main__':
     # شغّل خادم الويب في thread منفصل
@@ -88,4 +68,4 @@ if __name__ == '__main__':
     flask_thread.start()
     
     # شغّل البوت
-    main()
+    asyncio.run(main())
