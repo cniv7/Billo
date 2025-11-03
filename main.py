@@ -6,7 +6,7 @@ import random
 import os
 import asyncio
 
-# =============== خادم ويب لتفعيل التشغيل المستمر =================
+# =============== خادم ويب منفصل =================
 app_web = Flask('')
 
 @app_web.route('/')
@@ -19,11 +19,8 @@ def ping():
 
 def run_web_server():
     port = int(os.environ.get('PORT', 8080))
-    app_web.run(host='0.0.0.0', port=port)
+    app_web.run(host='0.0.0.0', port=port, debug=False, use_reloader=False)
 
-def keep_alive():
-    t = Thread(target=run_web_server, daemon=True)
-    t.start()
 # ==========================================================
 
 # الكلمات اللي يرد عليها البوت
@@ -39,7 +36,7 @@ bobo_replies = [
 ]
 
 # رقمك من @userinfobot
-ADMIN_ID = 806582695  # ← تأكد من الرقم
+ADMIN_ID = 806582695
 
 async def reply_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.message.chat.type == "private":
@@ -59,20 +56,27 @@ async def reply_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             reply = random.choice(bobo_replies)
             await update.message.reply_text(reply)
 
-async def main():
-    """الدالة الرئيسية لتشغيل البوت"""
-    # احصل على التوكن من متغير البيئة (أكثر أماناً)
+def run_bot():
+    """تشغيل البوت في thread منفصل"""
     token = os.environ.get('BOT_TOKEN', '6211628509:AAGMolj4mItGRZthCGiB55_Jz9rmNiAbeXg')
     
-    bot_app = ApplicationBuilder().token(token).build()
-    bot_app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, reply_message))
+    async def bot_main():
+        bot_app = ApplicationBuilder().token(token).build()
+        bot_app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, reply_message))
+        
+        print("البوت شغال على Render ✅")
+        await bot_app.run_polling()
     
-    print("البوت شغال على Render ✅")
-    await bot_app.run_polling()
+    asyncio.run(bot_main())
 
 if __name__ == '__main__':
-    # شغّل خادم الويب أولاً
-    keep_alive()
+    # تشغيل خادم الويب في thread رئيسي
+    port = int(os.environ.get('PORT', 8080))
     
-    # شغّل البوت
-    asyncio.run(main())
+    # تشغيل البوت في thread منفصل
+    bot_thread = Thread(target=run_bot, daemon=True)
+    bot_thread.start()
+    
+    # تشغيل خادم الويب في thread الرئيسي
+    print(f"Starting web server on port {port}")
+    app_web.run(host='0.0.0.0', port=port, debug=False, use_reloader=False)
