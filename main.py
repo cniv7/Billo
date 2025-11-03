@@ -3,26 +3,30 @@ from telegram.ext import ApplicationBuilder, MessageHandler, filters, ContextTyp
 from flask import Flask
 from threading import Thread
 import random
+import os
 
-# =============== خادم بسيط لتشغيل Render =================
-app_web = Flask('')
+# ================== خادم Render (لبقاء التطبيق شغال) ==================
+app_web = Flask(__name__)
 
 @app_web.route('/')
 def home():
-    return "Bot is alive!"
+    return "✅ Bot is alive and running!"
 
 def run():
-    app_web.run(host='0.0.0.0', port=8080)
+    # استخدم المنفذ اللي يرسله Render
+    port = int(os.environ.get("PORT", 8080))
+    app_web.run(host='0.0.0.0', port=port)
 
 def keep_alive():
     t = Thread(target=run)
+    t.daemon = True
     t.start()
-# ==========================================================
+# ======================================================================
 
 # الكلمات اللي يرد عليها البوت
 trigger_words = ["بوبو", "بوبوو", "بوبووو"]
 
-# الردود
+# الردود المحتملة
 bobo_replies = [
     "عيونوو",
     "قلبووووو",
@@ -35,7 +39,7 @@ bobo_replies = [
 ADMIN_ID = 806582695  # ← غيّره إذا تبغى
 
 async def reply_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if update.message.chat.type == "private":
+    if update.message and update.message.text:
         text = update.message.text.strip().lower()
 
         # يرسل لك نسخة من الرسالة
@@ -52,10 +56,12 @@ async def reply_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             reply = random.choice(bobo_replies)
             await update.message.reply_text(reply)
 
-# شغّل السيرفر + البوت
+# تشغيل السيرفر والبوت
 keep_alive()
+
+print("🚀 البوت يبدأ الآن...")
+
 bot_app = ApplicationBuilder().token("6211628509:AAGMolj4mItGRZthCGiB55_Jz9rmNiAbeXg").build()
 bot_app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, reply_message))
 
-print("البوت شغال ✅")
 bot_app.run_polling()
